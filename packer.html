@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BRM Packer</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#18181f;--bg4:#1e1e28;
+  --border:#2a2a38;--border2:#333344;
+  --text:#f0f0f5;--text2:#9898b0;--text3:#5a5a70;
+  --accent:#7c6ef5;--accent2:#a594f9;--accent-glow:rgba(124,110,245,.18);
+  --green:#2dd4a0;--green-dim:rgba(45,212,160,.12);
+  --amber:#f5a623;--amber-dim:rgba(245,166,35,.12);
+  --red:#f55a5a;--red-dim:rgba(245,90,90,.12);
+  --blue:#5a9cf5;--blue-dim:rgba(90,156,245,.12);
+  --r:12px;--r2:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-name{font-weight:700;font-size:17px;letter-spacing:-.3px}
+.brand-sub{font-size:10px;color:var(--text3);letter-spacing:.06em}
+.content{padding:14px 14px 80px}
+
+/* SCREENS */
+.screen{display:none}.screen.active{display:block}
+
+/* ANTRIAN LIST */
+.antrian-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;position:relative;overflow:hidden;active:scale(.98)}
+.antrian-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--amber)}
+.antrian-card.done::before{background:var(--green)}
+.antrian-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)}
+.antrian-resi{font-size:15px;font-weight:600;color:var(--text);margin:3px 0}
+.antrian-meta{font-size:12px;color:var(--text2)}
+.antrian-items{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.antrian-item-chip{font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'DM Mono',monospace;color:var(--text2)}
+.btn-pack{width:100%;padding:12px;border-radius:var(--r2);font-size:14px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;margin-top:10px;transition:all .15s}
+.btn-pack:active{transform:scale(.97);background:var(--accent2)}
+.btn-pack.done{background:var(--green-dim);color:var(--green);border:1px solid rgba(45,212,160,.3)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-text{font-size:14px;line-height:1.6}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600}
+.badge-amber{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,.2)}
+.badge-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(45,212,160,.2)}
+
+/* PACK SCREEN */
+.pack-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:57px;z-index:40}
+.back-btn{width:34px;height:34px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0}
+.pack-title-wrap .pack-resi{font-size:14px;font-weight:600}
+.pack-title-wrap .pack-sub{font-size:11px;color:var(--text3);margin-top:1px}
+
+/* ITEM CARDS */
+.item-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin:0 0 10px;position:relative;transition:all .25s}
+.item-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--border);border-radius:4px 0 0 4px;transition:background .25s}
+.item-card.scanned::before{background:var(--amber)}
+.item-card.done::before{background:var(--green)}
+.item-card.done{border-color:rgba(45,212,160,.3);background:rgba(45,212,160,.04)}
+.item-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.item-sku{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent2)}
+.item-name{font-size:14px;font-weight:600;color:var(--text);margin:2px 0 4px}
+.item-barcode{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.item-qty-wrap{text-align:right;flex-shrink:0}
+.item-qty-num{font-size:28px;font-weight:700;line-height:1;font-family:'DM Mono',monospace}
+.item-qty-num.amber{color:var(--amber)}
+.item-qty-num.green{color:var(--green)}
+.item-qty-target{font-size:11px;color:var(--text3)}
+.item-progress{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.item-progress-fill{height:100%;border-radius:3px;background:var(--amber);transition:width .3s}
+.item-progress-fill.green{background:var(--green)}
+.item-done-label{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;color:var(--green);font-weight:600}
+
+/* CAMERA */
+.cam-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.cam-box{position:relative;width:100%;aspect-ratio:4/3;background:#000;max-height:260px;overflow:hidden}
+.cam-video{width:100%;height:100%;object-fit:cover;display:block}
+.cam-finder-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.cam-finder{width:55%;aspect-ratio:1;position:relative;border:2px solid rgba(255,255,255,.5);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+.cam-corner{position:absolute;width:20px;height:20px;border-color:var(--green);border-style:solid}
+.cam-corner.tl{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:5px 0 0 0}
+.cam-corner.tr{top:-2px;right:-2px;border-width:3px 3px 0 0;border-radius:0 5px 0 0}
+.cam-corner.bl{bottom:-2px;left:-2px;border-width:0 0 3px 3px;border-radius:0 0 0 5px}
+.cam-corner.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 5px 0}
+.cam-line{position:absolute;left:5%;right:5%;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:scan 1.8s ease-in-out infinite}
+@keyframes scan{0%{top:8%}50%{top:86%}100%{top:8%}}
+@keyframes tapfade{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
+.cam-status{padding:10px 14px;font-size:12px;font-family:'DM Mono',monospace;text-align:center;color:var(--text2);min-height:38px}
+.cam-status.ok{color:var(--green)}
+.cam-status.err{color:var(--red)}
+.cam-btn-row{padding:10px 14px 14px;display:flex;gap:8px}
+.cam-btn{flex:1;padding:11px;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.cam-btn.start{background:var(--accent);color:#fff}
+.cam-btn.stop{background:var(--red-dim);color:var(--red);border:1px solid rgba(245,90,90,.3)}
+.cam-btn:active{transform:scale(.96)}
+
+/* MANUAL INPUT */
+.manual-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px}
+.manual-label{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.manual-input{width:100%;padding:11px 14px;font-size:15px;border:2px solid var(--border2);border-radius:var(--r2);background:var(--bg3);color:var(--text);font-family:'DM Mono',monospace;outline:none;transition:border-color .15s}
+.manual-input:focus{border-color:var(--accent)}
+.manual-input.ok{border-color:var(--green)}
+.manual-input.err{border-color:var(--red);animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
+
+/* ALERT */
+.pack-alert{padding:11px 14px;border-radius:var(--r2);font-size:13px;margin-bottom:10px;display:none;align-items:center;gap:8px}
+.pack-alert.show{display:flex}
+.pack-alert.danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(245,90,90,.25)}
+.pack-alert.warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,.25)}
+.pack-alert.success{background:var(--green-dim);color:var(--green);border:1px solid rgba(45,212,160,.25)}
+
+/* DONE SCREEN */
+.done-screen{text-align:center;padding:40px 20px}
+.done-icon{font-size:64px;margin-bottom:16px;animation:pop .4s ease-out}
+@keyframes pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.done-title{font-size:22px;font-weight:700;color:var(--green);margin-bottom:8px}
+.done-sub{font-size:14px;color:var(--text2);margin-bottom:28px}
+.btn-back{padding:13px 28px;border-radius:var(--r2);font-size:14px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;transition:all .15s}
+.btn-back:active{transform:scale(.96)}
+
+/* BOTTOM CONFIRM */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 14px;background:var(--bg2);border-top:1px solid var(--border);z-index:50}
+.btn-confirm{width:100%;padding:14px;border-radius:var(--r2);font-size:15px;font-weight:700;cursor:pointer;border:none;background:var(--green);color:#000;transition:all .15s;letter-spacing:.02em}
+.btn-confirm:disabled{opacity:.35;cursor:not-allowed}
+.btn-confirm:not(:disabled):active{transform:scale(.97)}
+
+/* PACKER NAME */
+.packer-bar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)}
+.packer-bar input{flex:1;background:transparent;border:none;outline:none;font-size:12px;color:var(--text);font-family:inherit}
+
+/* REFRESH */
+.refresh-btn{width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:transform .3s}
+.refresh-btn:active{transform:rotate(180deg)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div>
+      <div class="brand-name">BRM Packer</div>
+      <div class="brand-sub">Verifikasi Packing</div>
+    </div>
+  </div>
+  <div id="refresh-btn" class="refresh-btn" onclick="loadAntrian()">↻</div>
+</div>
+
+<div class="packer-bar">
+  <span>👤 Nama Packer:</span>
+  <input type="text" id="packer-name" placeholder="Ketik nama Anda..." oninput="savePacker()">
+</div>
+
+<!-- SCREEN: LIST -->
+<div class="screen active" id="screen-list">
+  <div class="content">
+    <div id="antrian-stats" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
+    <div style="position:relative;margin-bottom:8px">
+      <input type="text" id="search-input" placeholder="🔍 Cari resi, SKU, ekspedisi, gudang..." 
+        oninput="filterAntrian()"
+        style="width:100%;padding:11px 14px;border-radius:var(--r2);border:2px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:border-color .15s"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+    </div>
+    <div id="platform-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="antrian-list"></div>
+  </div>
+</div>
+
+<!-- SCREEN: PACK -->
+<div class="screen" id="screen-pack">
+  <div class="pack-header">
+    <div class="back-btn" onclick="backToList()">←</div>
+    <div class="pack-title-wrap">
+      <div class="pack-resi" id="pack-resi-title">—</div>
+      <div class="pack-sub" id="pack-sub-title">—</div>
+    </div>
+  </div>
+  <div class="content" id="pack-content"></div>
+  <div class="bottom-bar">
+    <button class="btn-confirm" id="btn-confirm" disabled onclick="selesaiPack()">✓ Selesai — Konfirmasi</button>
+  </div>
+</div>
+
+<!-- SCREEN: DONE -->
+<div class="screen" id="screen-done">
+  <div class="content">
+    <div class="done-screen">
+      <div class="done-icon">🎉</div>
+      <div class="done-title">Packing Selesai!</div>
+      <div class="done-sub" id="done-sub">Pesanan berhasil diverifikasi.</div>
+      <button class="btn-back" onclick="backToList()">← Kembali ke Antrian</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────
+let currentPkg=null;
+let packItems=[];
+let cameraActive=false;
+let codeReader=null;
+let camStream=null;
+let lastScan='';let lastScanTime=0;
+let apiUrl='';
+let masterData={};
+let selesaiIds=[];
+let allMenunggu=[];
+let activePlatform='';
+
+// ── INIT ──────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  // Reset selesai IDs kalau hari baru
+  const lastDay=localStorage.getItem('brm_last_day');
+  const todayD=new Date().toISOString().split('T')[0];
+  if(lastDay!==todayD){localStorage.removeItem('brm_selesai_ids');localStorage.setItem('brm_last_day',todayD);}
+
+  const savedName=localStorage.getItem('brm_packer_name');
+  if(savedName)document.getElementById('packer-name').value=savedName;
+  const savedUrl=localStorage.getItem('brm_api_url');
+  if(savedUrl){
+    apiUrl=savedUrl;
+    document.getElementById('antrian-list').innerHTML=`<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Memuat pesanan...</div></div>`;
+    loadAntrian();
+  }
+  else showUrlPrompt();
+  selesaiIds=JSON.parse(localStorage.getItem('brm_selesai_ids')||'[]');
+});
+
+function savePacker(){localStorage.setItem('brm_packer_name',document.getElementById('packer-name').value);}
+function getPackerName(){return document.getElementById('packer-name').value.trim()||'Packer';}
+
+function showUrlPrompt(){
+  const el=document.getElementById('antrian-list');
+  el.innerHTML=`<div class="empty-state">
+    <div class="empty-icon">🔗</div>
+    <div class="empty-text" style="margin-bottom:16px">Masukkan URL Google Apps Script<br>untuk menghubungkan ke data admin</div>
+    <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/..." 
+      style="width:100%;padding:12px;border-radius:8px;border:2px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px;outline:none;margin-bottom:10px">
+    <button class="btn-pack" onclick="saveUrl()" style="background:var(--accent)">Hubungkan</button>
+  </div>`;
+}
+
+async function saveUrl(){
+  const val=document.getElementById('url-input')?.value.trim();
+  if(!val)return;
+  // Test connection
+  const el=document.getElementById('antrian-list');
+  el.innerHTML=`<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Menghubungkan...</div></div>`;
+  try{
+    const r=await fetch(val+'?action=ping');
+    const d=await r.json();
+    if(d.status==='ok'){
+      apiUrl=val;
+      localStorage.setItem('brm_api_url',val);
+      loadAntrian();
+    } else {
+      throw new Error(d.message||'Gagal');
+    }
+  } catch(e){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">❌</div><div class="empty-text">Gagal terhubung: ${e.message}<br><br><button class="btn-pack" onclick="showUrlPrompt()" style="background:var(--red-dim);color:var(--red);border:1px solid var(--red)">Coba Lagi</button></div></div>`;
+  }
+}
+
+// ── ANTRIAN — ambil dari DB Keluar hari ini ───────────
+let lastLoadTime=0;
+let cachedData=null;
+
+async function loadAntrian(forceRefresh=false){
+  const el=document.getElementById('antrian-list');
+  const stats=document.getElementById('antrian-stats');
+
+  // Tampilkan data cache dulu kalau ada (instant)
+  const now=Date.now();
+  if(cachedData&&!forceRefresh&&(now-lastLoadTime)<30000){
+    renderFromData(cachedData);
+    // Refresh di background diam-diam
+    fetchAndUpdate();
+    return;
+  }
+
+  el.innerHTML=`<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Memuat pesanan...</div></div>`;
+  await fetchAndUpdate();
+}
+
+async function fetchAndUpdate(){
+  const el=document.getElementById('antrian-list');
+  try{
+    const todayStr=new Date().toISOString().split('T')[0];
+    const r=await fetch(apiUrl+'?action=getPackerData&tanggal='+todayStr);
+    const d=await r.json();
+    if(d.status==='error'&&(d.message?.includes('tidak dikenal')||d.message?.includes('unknown'))){
+      await fetchFallback();return;
+    }
+    cachedData=d;lastLoadTime=Date.now();renderFromData(d);
+  }catch(e){
+    try{await fetchFallback();}
+    catch(e2){
+      if(el)el.innerHTML=`<div class="empty-state"><div class="empty-icon">❌</div><div class="empty-text">Gagal memuat.<br><span style="font-size:11px;color:var(--text3)">${e2.message||e.message}</span><br><br><button class="btn-pack" onclick="loadAntrian(true)" style="margin-bottom:8px">↻ Coba Lagi</button><br><button class="btn-pack" onclick="resetUrl()" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)">🔗 Ganti URL</button></div></div>`;
+    }
+  }
+}
+
+async function fetchFallback(){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const r=await fetch(apiUrl+'?action=getAll');
+  const d=await r.json();
+
+  function normTgl(val){
+    if(!val)return'';
+    const s=String(val).trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
+    const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    try{const dt=new Date(s);if(!isNaN(dt))return dt.toISOString().split('T')[0];}catch(e){}
+    return s;
+  }
+
+  const packerData={
+    master: d.master||[],
+    dbKToday: (d.dbK||[]).filter(row=>normTgl(row.tanggal||row.Tanggal||'')===todayStr)
+  };
+  console.log('[Packer] dbK total:',(d.dbK||[]).length,'today:',packerData.dbKToday.length,'date:',todayStr);
+  if((d.dbK||[]).length&&!packerData.dbKToday.length)
+    console.log('[Packer] sample tanggal:',(d.dbK||[]).slice(0,3).map(r=>r.tanggal||r.Tanggal));
+
+  cachedData=packerData;
+  lastLoadTime=Date.now();
+  renderFromData(packerData);
+}
+
+function renderFromData(d){
+  const el=document.getElementById('antrian-list');
+  const stats=document.getElementById('antrian-stats');
+  const todayStr=new Date().toISOString().split('T')[0];
+
+  // Build master barcode index
+  masterData={};
+  if(d.master){
+    d.master.forEach(row=>{
+      const k=(Array.isArray(row)?row[0]:row.varianSKU||'').toString().trim().toUpperCase().replace(/\s+/g,'');
+      if(!k)return;
+      if(!masterData[k])masterData[k]=[];
+      masterData[k].push({
+        sku:(Array.isArray(row)?row[1]:row.sku)||'',
+        nama:(Array.isArray(row)?row[2]:row.namaBarang)||'',
+        qty:Number(Array.isArray(row)?row[3]:row.qty)||1,
+        barcode:((Array.isArray(row)?row[4]:row.Barcode||row.barcode||'')||'').toString().trim()
+      });
+    });
+  }
+
+  // Ambil baris hari ini
+  const todayRows=d.dbKToday||d.dbK||[];
+
+  // Group by resi
+  const groups={};
+  todayRows.forEach(r=>{
+    const key=(r.resi||r.noPesanan||'').toString().trim();
+    if(!key)return;
+    if(!groups[key])groups[key]={
+      id:'PKG-'+key,resi:key,noPesanan:r.noPesanan||key,
+      tanggal:r.tanggal||todayStr,gudang:r.gudang||'',
+      ekspedisi:r.ekspedisi||'',platform:r.platform||'',items:[]
+    };
+    const skuKey=(r.sku||'').toString().trim().toUpperCase().replace(/\s+/g,'');
+    const barcode=(masterData[skuKey]||[])[0]?.barcode||'';
+    // Hindari duplikat SKU dalam satu resi
+    const exists=groups[key].items.find(it=>it.sku===r.sku);
+    if(!exists)groups[key].items.push({sku:r.sku||'',nama:r.nama||'',qty:Number(r.qty)||1,barcode});
+    else exists.qty+=Number(r.qty)||0;
+  });
+
+  const selesai=JSON.parse(localStorage.getItem('brm_selesai_ids')||'[]');
+  allMenunggu=Object.values(groups).filter(g=>!selesai.includes(g.id));
+  const sdSelesai=Object.values(groups).filter(g=>selesai.includes(g.id));
+
+  stats.innerHTML=`
+    <span class="badge badge-amber" style="font-size:12px;padding:5px 12px">${allMenunggu.length} Menunggu</span>
+    <span class="badge badge-green" style="font-size:12px;padding:5px 12px">${sdSelesai.length} Selesai</span>
+    <span style="font-size:10px;color:var(--text3);padding:4px 0;font-family:monospace">↻ ${new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</span>`;
+
+  if(!allMenunggu.length){
+    const si=document.getElementById('search-input');if(si)si.value='';
+    const isEmpty=todayRows.length===0;
+    el.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">${isEmpty?'📭':'🎉'}</div>
+      <div class="empty-text">${isEmpty
+        ?'Admin belum input pesanan hari ini.<br><span style="font-size:11px;color:var(--text3)">'+todayStr+'</span>'
+        :'Semua pesanan sudah selesai dipack!'}
+      </div>
+      ${sdSelesai.length?`<button onclick="resetSelesai()" style="margin-top:12px;padding:8px 16px;background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,.3);border-radius:var(--r2);font-size:12px;cursor:pointer">↩ Reset Status Selesai</button>`:''}
+    </div>`;
+    return;
+  }
+
+  const si=document.getElementById('search-input');if(si)si.value='';
+  activePlatform='';
+  renderPlatformChips();
+  renderCards(allMenunggu);
+}
+
+function renderCards(list){
+  const el=document.getElementById('antrian-list');
+  if(!list.length){
+    const q=document.getElementById('search-input')?.value||'';
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">${q?'Tidak ada hasil untuk "<b>'+q+'</b>"':'Tidak ada pesanan.'}</div></div>`;
+    return;
+  }
+  el.innerHTML=list.map(a=>{
+    const enc=encodeURIComponent(JSON.stringify(a));
+    const totalQty=a.items.reduce((s,it)=>s+Number(it.qty||1),0);
+    const platformIcon={'Shopee':'🛒','TikTok Shop':'🎵','Lazada':'🛍️','Big Seller':'📦'}[a.platform]||'🏪';
+    const platformColor={'Shopee':'#ee4d2d','TikTok Shop':'#010101','Lazada':'#0f146d'}[a.platform]||'var(--accent)';
+    return`<div class="antrian-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:11px;background:${platformColor}22;color:${platformColor};border:1px solid ${platformColor}44;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap">${platformIcon} ${a.platform||'Manual'}</span>
+            <span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${a.tanggal}</span>
+          </div>
+          <div class="antrian-resi" style="word-break:break-all;font-size:14px">${a.resi}</div>
+          <div class="antrian-meta" style="margin-top:3px">${[a.gudang,a.ekspedisi].filter(Boolean).join(' · ')}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">${totalQty} item · ${a.items.map(it=>it.sku).join(', ')}</div>
+        </div>
+        <span class="badge badge-amber" style="flex-shrink:0">Menunggu</span>
+      </div>
+      <button class="btn-pack" onclick="openPackData('${enc}')">📦 Mulai Pack</button>
+    </div>`;}).join('');
+}
+
+function renderPlatformChips(){
+  const platforms=[...new Set(allMenunggu.map(a=>a.platform||'Manual').filter(Boolean))];
+  const el=document.getElementById('platform-chips');
+  if(!el||platforms.length<=1){if(el)el.innerHTML='';return;}
+  const icons={'Shopee':'🛒','TikTok Shop':'🎵','Lazada':'🛍️','Big Seller':'📦','Manual':'✏️'};
+  el.innerHTML=`<span onclick="setPlatform('')" style="cursor:pointer;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;border:1.5px solid ${activePlatform===''?'var(--accent)':'var(--border2)'};background:${activePlatform===''?'var(--accent-glow)':'var(--bg3)'};color:${activePlatform===''?'var(--accent2)':'var(--text3)'};transition:all .15s">Semua</span>`+
+    platforms.map(p=>`<span onclick="setPlatform('${p}')" style="cursor:pointer;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;border:1.5px solid ${activePlatform===p?'var(--accent)':'var(--border2)'};background:${activePlatform===p?'var(--accent-glow)':'var(--bg3)'};color:${activePlatform===p?'var(--accent2)':'var(--text3)'};transition:all .15s">${icons[p]||'🏪'} ${p}</span>`).join('');
+}
+
+function setPlatform(p){
+  activePlatform=p;
+  renderPlatformChips();
+  filterAntrian();
+}
+
+function filterAntrian(){
+  const q=(document.getElementById('search-input')?.value||'').trim().toLowerCase();
+  let filtered=allMenunggu;
+  // Filter platform
+  if(activePlatform)filtered=filtered.filter(a=>(a.platform||'Manual')===activePlatform);
+  // Filter search
+  if(q)filtered=filtered.filter(a=>
+    (a.resi||'').toLowerCase().includes(q)
+    ||(a.noPesanan||'').toLowerCase().includes(q)
+    ||(a.ekspedisi||'').toLowerCase().includes(q)
+    ||(a.gudang||'').toLowerCase().includes(q)
+    ||(a.platform||'').toLowerCase().includes(q)
+    ||a.items.some(it=>(it.sku||'').toLowerCase().includes(q)||(it.nama||'').toLowerCase().includes(q))
+  );
+  renderCards(filtered);
+}
+
+function resetUrl(){localStorage.removeItem('brm_api_url');apiUrl='';showUrlPrompt();}
+function resetSelesai(){if(!confirm('Reset status selesai? Semua pesanan hari ini akan muncul kembali.'))return;localStorage.removeItem('brm_selesai_ids');loadAntrian(true);}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function backToList(){
+  stopCamera();
+  currentPkg=null;
+  packItems=[];
+  showScreen('list');
+  loadAntrian();
+}
+
+function openPackData(enc){
+  try{
+    const pkg=JSON.parse(decodeURIComponent(enc));
+    currentPkg=pkg;
+    packItems=pkg.items.map(it=>({...it,scanned:0}));
+    document.getElementById('pack-resi-title').textContent=pkg.resi;
+    document.getElementById('pack-sub-title').textContent=(pkg.gudang||'')+(pkg.ekspedisi?' · '+pkg.ekspedisi:'');
+    renderPackContent();
+    showScreen('pack');
+  }catch(e){alert('Error: '+e.message);}
+}
+
+function renderPackContent(){
+  const allDone=packItems.every(p=>p.scanned>=p.qty);
+  const el=document.getElementById('pack-content');
+  el.innerHTML=`
+    <div class="cam-section">
+      <!-- Mode selector -->
+      <div style="display:flex;gap:0;margin-bottom:10px;border-radius:var(--r2);overflow:hidden;border:1.5px solid var(--border2)">
+        <button id="mode-btn-foto" onclick="setCamMode('foto')"
+          style="flex:1;padding:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;transition:all .15s">
+          📸 Foto (Lebih Tajam)
+        </button>
+        <button id="mode-btn-live" onclick="setCamMode('live')"
+          style="flex:1;padding:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--bg3);color:var(--text2);transition:all .15s">
+          🎥 Live Scan
+        </button>
+      </div>
+
+      <!-- MODE FOTO: pakai kamera native HP -->
+      <div id="mode-foto">
+        <div style="text-align:center;padding:6px 0 10px">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">HP buka kamera native → foto barcode → otomatis terbaca</p>
+          <label style="display:inline-flex;align-items:center;gap:8px;padding:13px 24px;background:var(--accent);color:#fff;border-radius:var(--r2);font-size:15px;font-weight:700;cursor:pointer;width:100%;justify-content:center">
+            📷 Ambil Foto Barcode
+            <input type="file" accept="image/*" capture="environment" id="foto-input"
+              style="display:none" onchange="scanFromPhoto(event)">
+          </label>
+          <p style="font-size:11px;color:var(--text3);margin-top:8px">Gunakan mode ini untuk barcode kecil — hasil foto lebih tajam</p>
+        </div>
+        <div id="foto-preview" style="display:none;margin-bottom:10px;border-radius:var(--r2);overflow:hidden;background:var(--bg3);text-align:center">
+          <img id="foto-img" style="max-width:100%;max-height:200px;object-fit:contain">
+          <div id="foto-status" style="padding:8px;font-size:12px;font-family:monospace;color:var(--text2)"></div>
+        </div>
+      </div>
+
+      <!-- MODE LIVE: stream kamera -->
+      <div id="mode-live" style="display:none">
+        <div id="cam-box" style="display:none;position:relative;width:100%;background:#000;border-radius:var(--r);overflow:hidden;max-height:280px">
+          <div id="qr-reader" style="width:100%"></div>
+        </div>
+        <div class="cam-status" id="cam-status">Tap tombol untuk aktifkan kamera live</div>
+        <div class="cam-btn-row">
+          <button class="cam-btn start" id="cam-btn" onclick="toggleCam()">🎥 Aktifkan Live Scan</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="manual-section">
+      <div class="manual-label">Atau ketik barcode manual</div>
+      <input class="manual-input" id="manual-bc" type="text" placeholder="Ketik barcode lalu Enter..." onkeydown="if(event.key==='Enter'){doManualScan();}" autocomplete="off" autocorrect="off">
+    </div>
+    <div class="pack-alert" id="pack-alert"></div>
+    <div id="items-list">
+      ${packItems.map((p,i)=>renderItemCard(p,i)).join('')}
+    </div>`;
+
+  updateConfirmBtn();
+}
+
+function setCamMode(mode){
+  const foto=document.getElementById('mode-foto');
+  const live=document.getElementById('mode-live');
+  const btnFoto=document.getElementById('mode-btn-foto');
+  const btnLive=document.getElementById('mode-btn-live');
+  if(mode==='foto'){
+    if(foto)foto.style.display='block';
+    if(live)live.style.display='none';
+    if(btnFoto){btnFoto.style.background='var(--accent)';btnFoto.style.color='#fff';}
+    if(btnLive){btnLive.style.background='var(--bg3)';btnLive.style.color='var(--text2)';}
+    stopCamera();
+  } else {
+    if(foto)foto.style.display='none';
+    if(live)live.style.display='block';
+    if(btnLive){btnLive.style.background='var(--accent)';btnLive.style.color='#fff';}
+    if(btnFoto){btnFoto.style.background='var(--bg3)';btnFoto.style.color='var(--text2)';}
+  }
+}
+
+async function scanFromPhoto(event){
+  const file=event.target.files[0];
+  if(!file)return;
+
+  const preview=document.getElementById('foto-preview');
+  const img=document.getElementById('foto-img');
+  const fstatus=document.getElementById('foto-status');
+  if(preview)preview.style.display='block';
+  const objUrl=URL.createObjectURL(file);
+  if(img)img.src=objUrl;
+  if(fstatus){fstatus.textContent='⏳ Membaca barcode...';fstatus.style.color='var(--text2)';}
+
+  let result=null;
+
+  // ── ENGINE 1: BarcodeDetector API (native, paling akurat untuk barcode melengkung) ──
+  if('BarcodeDetector' in window){
+    try{
+      const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a','upc_e','code_39','itf']});
+      const bitmap=await createImageBitmap(file);
+      const barcodes=await detector.detect(bitmap);
+      if(barcodes.length>0){
+        result=barcodes[0].rawValue;
+        console.log('[BarcodeDetector] OK:',result);
+      }
+    }catch(e){console.log('[BarcodeDetector] err:',e.message);}
+  }
+
+  // ── ENGINE 2: Html5Qrcode scanFile ──
+  if(!result){
+    try{
+      if(!document.getElementById('qr-reader-foto')){
+        const d=document.createElement('div');d.id='qr-reader-foto';d.style.display='none';document.body.appendChild(d);
+      }
+      const reader=new Html5Qrcode('qr-reader-foto');
+      result=await reader.scanFile(file,false);
+      try{await reader.clear();}catch(e){}
+      console.log('[Html5Qrcode] OK:',result);
+    }catch(e){console.log('[Html5Qrcode] err:',e.message);}
+  }
+
+  // ── ENGINE 3: Canvas preprocessing → BarcodeDetector (tingkatkan kontras) ──
+  if(!result&&'BarcodeDetector' in window){
+    try{
+      const canvas=document.createElement('canvas');
+      const bitmap=await createImageBitmap(file);
+      // Scale up 2x untuk barcode kecil
+      canvas.width=bitmap.width*2;
+      canvas.height=bitmap.height*2;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      // Tingkatkan kontras
+      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const data=imageData.data;
+      for(let i=0;i<data.length;i+=4){
+        // Grayscale
+        const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+        // Threshold untuk hitam/putih
+        const bw=gray>128?255:0;
+        data[i]=data[i+1]=data[i+2]=bw;
+      }
+      ctx.putImageData(imageData,0,0);
+      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      const bitmap2=await createImageBitmap(blob);
+      const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a','upc_e']});
+      const barcodes=await detector.detect(bitmap2);
+      if(barcodes.length>0){result=barcodes[0].rawValue;console.log('[Canvas+BarcodeDetector] OK:',result);}
+    }catch(e){console.log('[Canvas+BarcodeDetector] err:',e.message);}
+  }
+
+  event.target.value='';
+
+  if(result){
+    if(fstatus){fstatus.textContent='✓ '+result;fstatus.style.color='var(--green)';}
+    vibrate([60]);
+    setTimeout(()=>{
+      processBarcode(result);
+      setTimeout(()=>{if(preview)preview.style.display='none';},1500);
+    },200);
+  } else {
+    if(fstatus){
+      fstatus.innerHTML='❌ Tidak terbaca.<br><span style="font-size:10px;color:var(--text3)">Tips: foto tegak lurus, jarak 8-12cm, cahaya cukup, barcode lurus di tengah frame</span>';
+      fstatus.style.color='var(--red)';
+    }
+    vibrate([80,40,80]);
+  }
+}
+
+// Div tersembunyi untuk Html5Qrcode file reader
+document.addEventListener('DOMContentLoaded',()=>{
+  if(!document.getElementById('qr-reader-foto')){
+    const d=document.createElement('div');
+    d.id='qr-reader-foto';d.style.display='none';
+    document.body.appendChild(d);
+  }
+});
+
+function renderItemCard(p,i){
+  const done=p.scanned>=p.qty;
+  const pct=p.qty>0?Math.min(100,Math.round(p.scanned/p.qty*100)):0;
+  return`<div class="item-card ${done?'done':p.scanned>0?'scanned':''}" id="item-${i}">
+    <div class="item-card-top">
+      <div style="flex:1">
+        <div class="item-sku">${p.sku}</div>
+        <div class="item-name">${p.nama}</div>
+        <div class="item-barcode">${p.barcode?'Barcode: '+p.barcode:'⚠ Belum ada barcode'}</div>
+        ${done?'<div class="item-done-label">✓ Lengkap</div>':''}
+      </div>
+      <div class="item-qty-wrap">
+        <div class="item-qty-num ${done?'green':p.scanned>0?'amber':''}" id="qty-${i}">${p.scanned}</div>
+        <div class="item-qty-target">/ ${p.qty}</div>
+      </div>
+    </div>
+    <div class="item-progress">
+      <div class="item-progress-fill ${done?'green':''}" id="prog-${i}" style="width:${pct}%"></div>
+    </div>
+  </div>`;
+}
+
+function updateItemCard(i){
+  const p=packItems[i];
+  const done=p.scanned>=p.qty;
+  const pct=Math.min(100,Math.round(p.scanned/p.qty*100));
+  const card=document.getElementById('item-'+i);
+  if(card)card.className='item-card '+(done?'done':p.scanned>0?'scanned':'');
+  const qtyEl=document.getElementById('qty-'+i);
+  if(qtyEl){qtyEl.textContent=p.scanned;qtyEl.className='item-qty-num '+(done?'green':p.scanned>0?'amber':'');}
+  const progEl=document.getElementById('prog-'+i);
+  if(progEl){progEl.style.width=pct+'%';if(done)progEl.classList.add('green');}
+  if(done&&card){
+    if(!card.querySelector('.item-done-label')){
+      const nameEl=card.querySelector('.item-name');
+      if(nameEl)nameEl.insertAdjacentHTML('afterend','<div class="item-done-label">✓ Lengkap</div>');
+    }
+    // Scroll ke item berikutnya
+    const next=packItems.findIndex((p2,j)=>j>i&&p2.scanned<p2.qty);
+    if(next>=0)document.getElementById('item-'+next)?.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn(){
+  const btn=document.getElementById('btn-confirm');
+  if(!btn)return;
+  const allDone=packItems.every(p=>p.scanned>=p.qty);
+  btn.disabled=!allDone;
+  btn.textContent=allDone?'✓ Selesai — Konfirmasi':'Scan semua item dulu...';
+}
+
+// ── BARCODE PROCESSING ────────────────────────────────
+function buildIdx(){
+  // build barcode→index map from packItems
+  const idx={};
+  packItems.forEach((p,i)=>{
+    if(p.barcode){const k=p.barcode.trim().toLowerCase();if(!idx[k])idx[k]=[];idx[k].push(i);}
+    // also allow SKU direct
+    const sk=p.sku.trim().toLowerCase();if(!idx[sk])idx[sk]=[];idx[sk].push(i);
+  });
+  return idx;
+}
+
+function processBarcode(val){
+  if(!val)return;
+  const k=val.trim().toLowerCase();
+  const idx=buildIdx();
+  const matches=idx[k]||[];
+  // deduplicate
+  const unique=[...new Set(matches)];
+  const target=unique.find(i=>packItems[i].scanned<packItems[i].qty);
+
+  if(unique.length===0){
+    beepErr();vibrate([80,40,80]);
+    showAlert('danger','❌ Barcode tidak cocok dengan pesanan ini!');
+    flashInput('err');
+    return;
+  }
+  if(target===undefined){
+    beepErr();vibrate([60]);
+    showAlert('warn','⚠ Semua item dengan barcode ini sudah lengkap!');
+    return;
+  }
+  packItems[target].scanned++;
+  beepOk();vibrate([50]);
+  showAlert('success','✅ '+packItems[target].nama+' ('+packItems[target].scanned+'/'+packItems[target].qty+')');
+  updateItemCard(target);
+
+  const allDone=packItems.every(p=>p.scanned>=p.qty);
+  const status=document.getElementById('cam-status');
+  if(allDone&&status){status.textContent='🎉 Semua item lengkap!';status.className='cam-status ok';}
+}
+
+function doManualScan(){
+  const el=document.getElementById('manual-bc');
+  if(!el)return;
+  const val=el.value.trim();
+  el.value='';
+  if(!val)return;
+  processBarcode(val);
+}
+
+// ── CAMERA ────────────────────────────────────────────
+let html5QrCode=null;
+let currentZoom=1;
+let torchOn=false;
+let videoTrack=null;
+
+async function toggleCam(){
+  if(cameraActive){await stopCamera();return;}
+  await startCamera();
+}
+
+async function startCamera(){
+  const btn=document.getElementById('cam-btn');
+  const box=document.getElementById('cam-box');
+  const status=document.getElementById('cam-status');
+  if(!btn||!box)return;
+  if(typeof Html5Qrcode==='undefined'){showAlert('danger','Library barcode tidak tersedia. Refresh halaman.');return;}
+
+  btn.textContent='⏳ Membuka kamera...';
+  btn.disabled=true;
+  box.style.display='block';
+  currentZoom=1;torchOn=false;
+
+  try{
+    html5QrCode=new Html5Qrcode('qr-reader');
+    const cameras=await Html5Qrcode.getCameras();
+    let camId=cameras[0]?.id;
+    const rear=cameras.find(c=>/back|rear|environment/i.test(c.label));
+    if(rear)camId=rear.id;
+
+    await html5QrCode.start(
+      camId||{facingMode:'environment'},
+      {
+        fps:30,
+        qrbox:(w,h)=>({width:Math.round(w*0.95),height:Math.round(h*0.55)}),
+        aspectRatio:16/9,
+        videoConstraints:{
+          facingMode:'environment',
+          width:{ideal:1280},
+          height:{ideal:720},
+          advanced:[{focusMode:'continuous'},{focusMode:'macro'}],
+        },
+        formatsToSupport:[
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+        ],
+        experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+      },
+      (decodedText)=>{
+        const now=Date.now();
+        if(decodedText===lastScan&&(now-lastScanTime)<2000)return;
+        lastScan=decodedText;lastScanTime=now;
+        if(status){status.textContent='✓ '+decodedText;status.className='cam-status ok';}
+        vibrate([50]);
+        processBarcode(decodedText);
+      },
+      ()=>{}
+    );
+
+    cameraActive=true;
+    btn.textContent='🛑 Matikan Kamera';
+    btn.className='cam-btn stop';
+    btn.disabled=false;
+    if(status){status.textContent='Arahkan ke barcode · Tap video untuk fokus';status.className='cam-status';}
+
+    setTimeout(async()=>{
+      try{
+        const video=document.querySelector('#qr-reader video');
+        if(video?.srcObject){
+          const track=video.srcObject.getVideoTracks()[0];
+          if(track){
+            videoTrack=track;
+            const caps=track.getCapabilities?.()??{};
+            if(caps.focusMode){
+              if(caps.focusMode.includes('macro'))
+                await track.applyConstraints({advanced:[{focusMode:'macro'}]}).catch(()=>{});
+              else if(caps.focusMode.includes('continuous'))
+                await track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
+            }
+          }
+
+          // TAP TO FOCUS + CAPTURE
+          video.style.cursor='crosshair';
+          video.addEventListener('click', async(e)=>{
+            if(!cameraActive)return;
+            // 1. Coba paksa fokus ke titik tap
+            if(videoTrack){
+              const caps=videoTrack.getCapabilities?.()??{};
+              const rect=video.getBoundingClientRect();
+              const x=(e.clientX-rect.left)/rect.width;
+              const y=(e.clientY-rect.top)/rect.height;
+              try{
+                if(caps.focusMode?.includes('manual')){
+                  await videoTrack.applyConstraints({advanced:[{focusMode:'manual',pointsOfInterest:[{x,y}]}]}).catch(()=>{});
+                  setTimeout(()=>videoTrack.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{}),1500);
+                }
+              }catch(e){}
+            }
+            // Animasi tap
+            const dot=document.createElement('div');
+            dot.style.cssText=`position:absolute;width:44px;height:44px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:20;animation:tapfade .6s ease-out forwards;left:${e.clientX-video.getBoundingClientRect().left}px;top:${e.clientY-video.getBoundingClientRect().top}px`;
+            video.parentElement.appendChild(dot);
+            setTimeout(()=>dot.remove(),650);
+
+            // 2. Capture frame dan baca dengan BarcodeDetector
+            if('BarcodeDetector' in window){
+              try{
+                const canvas=document.createElement('canvas');
+                canvas.width=video.videoWidth;
+                canvas.height=video.videoHeight;
+                canvas.getContext('2d').drawImage(video,0,0);
+                const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a','upc_e','code_39']});
+                const barcodes=await detector.detect(canvas);
+                if(barcodes.length>0){
+                  const val=barcodes[0].rawValue;
+                  const now=Date.now();
+                  if(val===lastScan&&(now-lastScanTime)<2000)return;
+                  lastScan=val;lastScanTime=now;
+                  if(status){status.textContent='✓ '+val;status.className='cam-status ok';}
+                  vibrate([50]);
+                  processBarcode(val);
+                }
+              }catch(e){}
+            }
+          });
+        }
+        renderCamControls();
+      }catch(e){}
+      const dash=document.getElementById('qr-reader__dashboard');
+      if(dash)dash.style.display='none';
+      document.querySelectorAll('#qr-reader__header_message,#qr-reader__status_span').forEach(e=>e.style.display='none');
+    },800);
+
+  }catch(err){
+    await stopCamera();
+    if(err?.message?.includes('Permission')||err?.name==='NotAllowedError')
+      showAlert('danger','❌ Izin kamera ditolak. Buka Pengaturan browser → izinkan kamera.');
+    else
+      showAlert('warn','Tidak bisa buka kamera: '+(err?.message||String(err)));
+  }
+}
+
+function renderCamControls(){
+  document.getElementById('cam-controls')?.remove();
+  const wrap=document.getElementById('cam-box');
+  if(!wrap)return;
+  const caps=videoTrack?.getCapabilities?.()??{};
+  const hasZoom=caps.zoom&&caps.zoom.max>1;
+  const hasTorch=!!caps.torch;
+  const zStep=caps.zoom?.step||0.5;
+
+  const div=document.createElement('div');
+  div.id='cam-controls';
+  div.style.cssText='display:flex;gap:10px;justify-content:center;align-items:center;padding:8px 12px;background:rgba(0,0,0,.65);';
+
+  const btnStyle='width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+
+  if(hasZoom){
+    div.innerHTML=`
+      <button onclick="adjustZoom(-${zStep})" style="${btnStyle}">−</button>
+      <span id="zoom-label" style="color:#fff;font-size:13px;font-family:monospace;min-width:36px;text-align:center">1×</span>
+      <button onclick="adjustZoom(${zStep})" style="${btnStyle}">+</button>`;
+  } else {
+    div.innerHTML=`
+      <button onclick="adjustZoomCSS(-0.5)" style="${btnStyle}">−</button>
+      <span id="zoom-label" style="color:#fff;font-size:13px;font-family:monospace;min-width:36px;text-align:center">1×</span>
+      <button onclick="adjustZoomCSS(0.5)" style="${btnStyle}">+</button>
+      <span style="color:rgba(255,255,255,.4);font-size:10px">CSS</span>`;
+  }
+
+  if(hasTorch){
+    div.innerHTML+=`<button id="torch-btn" onclick="toggleTorch()" style="${btnStyle}font-size:18px;" title="Flash">🔦</button>`;
+  }
+
+  wrap.appendChild(div);
+}
+
+async function adjustZoom(delta){
+  if(!videoTrack)return;
+  try{
+    const caps=videoTrack.getCapabilities();
+    const zMin=caps.zoom?.min||1,zMax=caps.zoom?.max||5;
+    currentZoom=Math.min(zMax,Math.max(zMin,+(currentZoom+delta).toFixed(1)));
+    await videoTrack.applyConstraints({advanced:[{zoom:currentZoom}]});
+    const lbl=document.getElementById('zoom-label');
+    if(lbl)lbl.textContent=currentZoom+'×';
+  }catch(e){}
+}
+
+function adjustZoomCSS(delta){
+  const video=document.querySelector('#qr-reader video');
+  if(!video)return;
+  currentZoom=Math.min(4,Math.max(1,+(currentZoom+delta).toFixed(1)));
+  video.style.transform=`scale(${currentZoom})`;
+  video.style.transformOrigin='center center';
+  const lbl=document.getElementById('zoom-label');
+  if(lbl)lbl.textContent=currentZoom+'×';
+}
+
+async function toggleTorch(){
+  if(!videoTrack)return;
+  try{
+    torchOn=!torchOn;
+    await videoTrack.applyConstraints({advanced:[{torch:torchOn}]});
+    const b=document.getElementById('torch-btn');
+    if(b)b.style.background=torchOn?'rgba(255,220,50,.5)':'rgba(255,255,255,.15)';
+  }catch(e){showAlert('warn','Flash tidak tersedia di HP ini.');}
+}
+
+async function stopCamera(){
+  cameraActive=false;
+  torchOn=false;videoTrack=null;currentZoom=1;
+  document.getElementById('cam-controls')?.remove();
+  try{if(html5QrCode?.isScanning)await html5QrCode.stop();}catch(e){}
+  html5QrCode=null;
+  const box=document.getElementById('cam-box');if(box)box.style.display='none';
+  const btn=document.getElementById('cam-btn');
+  if(btn){btn.textContent='📷 Aktifkan Kamera';btn.className='cam-btn start';btn.disabled=false;}
+  const status=document.getElementById('cam-status');
+  if(status){status.textContent='Kamera dimatikan';status.className='cam-status';}
+}
+
+
+// ── SELESAI ───────────────────────────────────────────
+function selesaiPack(){
+  if(!currentPkg)return;
+  if(!packItems.every(p=>p.scanned>=p.qty)){showAlert('danger','Belum semua item di-scan!');return;}
+  stopCamera();
+  // Tandai sebagai selesai di localStorage
+  const ids=JSON.parse(localStorage.getItem('brm_selesai_ids')||'[]');
+  if(!ids.includes(currentPkg.id))ids.push(currentPkg.id);
+  localStorage.setItem('brm_selesai_ids',JSON.stringify(ids));
+  document.getElementById('done-sub').textContent='Pesanan '+currentPkg.resi+' berhasil dipack oleh '+getPackerName();
+  showScreen('done');
+  vibrate([100,50,100,50,200]);
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function showAlert(type,msg){
+  const el=document.getElementById('pack-alert');if(!el)return;
+  el.className='pack-alert show '+type;el.textContent=msg;
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+function flashInput(cls){
+  const el=document.getElementById('manual-bc');if(!el)return;
+  el.classList.add(cls);setTimeout(()=>el.classList.remove(cls),600);
+}
+function beepOk(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator();const g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=940;g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.12);o.start();o.stop(ac.currentTime+.12);}catch(e){}}
+function beepErr(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator();const g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=200;g.gain.setValueAtTime(.35,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.4);o.start();o.stop(ac.currentTime+.4);}catch(e){}}
+function vibrate(pat){try{if(navigator.vibrate)navigator.vibrate(pat);}catch(e){}}
+</script>
+</body>
+</html>
